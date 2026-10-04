@@ -17,20 +17,27 @@ function Invoke-RobotGit {
     & git @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Git command failed: git $($Arguments -join ' ')" }
 }
+function Invoke-RobotProbe {
+    param([string]$Executable, [string[]]$Arguments)
+    $ErrorActionPreference = 'Continue'
+    $output = & $Executable @Arguments 2>$null
+    return @{ Code = $LASTEXITCODE; Output = $output }
+}
 
 $robotOwner = (Invoke-RobotGh -Arguments @('api', 'user', '--jq', '.login')).Trim()
 if ($robotOwner -ne 'LazzLou') { throw "Signed in as $robotOwner; expected LazzLou. Run gh auth switch first." }
 $robotRepo = "$robotOwner/robot-motion-web"
-$robotOrigin = & git remote get-url origin 2>$null
-if ($LASTEXITCODE -eq 0) {
+$robotOriginProbe = Invoke-RobotProbe -Executable 'git' -Arguments @('remote', 'get-url', 'origin')
+$robotOrigin = $robotOriginProbe.Output
+if ($robotOriginProbe.Code -eq 0) {
     if ($robotOrigin -notin @("https://github.com/$robotRepo.git", "https://github.com/$robotRepo", "git@github.com:$robotRepo.git")) {
         throw "Existing origin points elsewhere: $robotOrigin. It has not been changed."
     }
     $robotVisibility = Invoke-RobotGh -Arguments @('repo', 'view', $robotRepo, '--json', 'visibility', '--jq', '.visibility')
     if ($robotVisibility.Trim() -ne 'PUBLIC') { throw 'Existing repository is not public. Inspect it before proceeding.' }
 } else {
-    $robotExisting = & $robotGh repo view $robotRepo --json nameWithOwner 2>$null
-    if ($LASTEXITCODE -eq 0) { throw "$robotRepo already exists without a matching local origin. Inspect it before connecting; nothing was overwritten." }
+    $robotExisting = Invoke-RobotProbe -Executable $robotGh -Arguments @('repo', 'view', $robotRepo, '--json', 'nameWithOwner')
+    if ($robotExisting.Code -eq 0) { throw "$robotRepo already exists without a matching local origin. Inspect it before connecting; nothing was overwritten." }
     Write-Host "Creating public repository $robotRepo"
     Invoke-RobotGh -Arguments @('repo', 'create', $robotRepo, '--public', '--description', 'Interactive two-link robot and configuration-space demonstration', '--source', '.', '--remote', 'origin')
 }
@@ -44,8 +51,8 @@ Invoke-RobotGh -Arguments @('auth', 'setup-git', '--hostname', 'github.com')
 Invoke-RobotGit -Arguments @('push', '-u', 'origin', 'main')
 
 Write-Host 'Configuring GitHub Pages'
-$robotPages = & $robotGh api "repos/$robotRepo/pages" 2>$null
-if ($LASTEXITCODE -eq 0) {
+$robotPages = Invoke-RobotProbe -Executable $robotGh -Arguments @('api', "repos/$robotRepo/pages")
+if ($robotPages.Code -eq 0) {
     Invoke-RobotGh -Arguments @('api', '--method', 'PUT', "repos/$robotRepo/pages", '-f', 'build_type=workflow') | Out-Null
 } else {
     Invoke-RobotGh -Arguments @('api', '--method', 'POST', "repos/$robotRepo/pages", '-f', 'build_type=workflow') | Out-Null
@@ -58,7 +65,8 @@ $robotHead = (& git rev-parse HEAD).Trim()
 $robotRun = $null
 for ($robotAttempt = 0; $robotAttempt -lt 30; $robotAttempt++) {
     $robotRuns = (Invoke-RobotGh -Arguments @('run', 'list', '--repo', $robotRepo, '--workflow', 'pages.yml', '--event', 'workflow_dispatch', '--limit', '10', '--json', 'databaseId,headSha,createdAt')) -join "`n"
-    $robotRun = $robotRuns | ConvertFrom-Json | Where-Object {
+    $robotParsedRuns = ConvertFrom-Json -InputObject $robotRuns
+    $robotRun = $robotParsedRuns | Where-Object {
         $_.headSha -eq $robotHead -and [DateTimeOffset]::Parse($_.createdAt) -ge $robotDispatchAfter
     } | Select-Object -First 1
     if ($robotRun) { break }
