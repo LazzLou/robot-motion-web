@@ -85,5 +85,6 @@ for ($robotAttempt = 0; $robotAttempt -lt 12; $robotAttempt++) {
     Start-Sleep -Seconds 5
 }
 if (-not $robotVerified) { throw "GitHub reports a successful deployment, but the page could not yet be verified. Check $robotUrl" }
+Invoke-RobotGh -Arguments @('repo', 'edit', $robotRepo, '--homepage', $robotUrl)
 Write-Host "`nLive website: $robotUrl"
 Write-Host "Repository: https://github.com/$robotRepo"
