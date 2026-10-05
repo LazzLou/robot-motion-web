@@ -7,10 +7,12 @@ Explore how a two-link robot arm moves around obstacles and how those obstacles 
 ## Controls
 
 - Drag either brown obstacle in the robot workspace.
+- Add or remove obstacles to explore scenes with zero to four obstacles. The numbers match the size controls below the plots.
+- Resize each obstacle from **1× to 3×** its original size.
 - Click or drag the crosshair in configuration space to change the arm's pose. Shaded regions represent collisions.
 - Use the base and elbow angle controls to set a precise pose.
 - Increase map quality to see finer collision boundaries.
-- Select **Reset** to restore the starting configuration.
+- Select **Reset** to restore the arm and two original obstacles at 1× size. Your map quality setting stays unchanged.
 
 Keyboard: focus an obstacle or the configuration map and use the arrow keys. Hold Shift for larger steps.
 
