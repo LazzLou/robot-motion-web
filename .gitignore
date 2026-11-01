@@ -2,3 +2,21 @@ node_modules/
 .sites-runtime/
 *.tar.gz
 .openai/
+
+# Local credentials and machine-specific agent configuration
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+*.pem
+*.key
+
+# Generated diagnostics and editor files
+*.log
+test-results/
+playwright-report/
+.DS_Store
+.idea/
+.vscode/

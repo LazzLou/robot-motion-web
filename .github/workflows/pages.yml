@@ -24,6 +24,17 @@ jobs:
           node --check dist/geometry.js
       - name: Test geometry and collision detection
         run: npm test
+      - name: Verify public file allowlist
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readdir, lstat} from 'node:fs/promises';
+          const allowed = ['app.js', 'geometry.js', 'index.html', 'style.css'];
+          assert.deepEqual((await readdir('dist')).sort(), allowed, 'Only the four application files may be published');
+          for (const name of allowed) {
+            assert.ok((await lstat(`dist/${name}`)).isFile(), `${name} must be a regular file, not a directory or symlink`);
+          }
+          JS
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload static application

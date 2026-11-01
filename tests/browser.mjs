@@ -1,9 +1,9 @@
 // Optional browser regression/profiling harness. See README for setup.
 import assert from 'node:assert/strict';
-import {writeFile, readFile} from 'node:fs/promises';
+import {writeFile, readFile, lstat} from 'node:fs/promises';
 import http from 'node:http';
 const {chromium}=await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',headless:true,chromiumSandbox:true});
 const page=await browser.newPage({viewport:{width:1200,height:1000}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.addInitScript(()=>{
@@ -31,7 +31,19 @@ let baselineServer;
 try {
   const urls=[['full','http://127.0.0.1:4173']];
   if(process.env.BASELINE_DIR){
-    baselineServer=http.createServer(async(req,res)=>{try{const path=req.url==='/'?'index.html':req.url.slice(1);res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');res.end(await readFile(`${process.env.BASELINE_DIR}/${path}`));}catch{res.writeHead(404);res.end();}}).listen(4174,'127.0.0.1');
+    // Load only regular app files once; requests cannot traverse the filesystem.
+    const baselineFiles=new Map();
+    for(const name of ['index.html','app.js','geometry.js','style.css']) {
+      const path=`${process.env.BASELINE_DIR}/${name}`;
+      assert.ok((await lstat(path)).isFile(), `Baseline ${name} must be a regular file`);
+      baselineFiles.set('/'+name,await readFile(path));
+    }
+    baselineServer=http.createServer((req,res)=>{
+      const path=req.url==='/'?'/index.html':req.url;
+      if(!baselineFiles.has(path)){res.writeHead(404);res.end('Not found');return;}
+      res.setHeader('Content-Type',path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'text/html');
+      res.end(baselineFiles.get(path));
+    }).listen(4174,'127.0.0.1');
     urls.unshift(['preview','http://127.0.0.1:4174']);
   }
   for(const [mode,url] of (process.env.CHECK_ONLY?[]:urls)){
