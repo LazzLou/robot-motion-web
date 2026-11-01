@@ -20,24 +20,45 @@ export function joints(a, b) {
   return [[0, 0], elbow, [elbow[0] + Math.cos(a + b), elbow[1] + Math.sin(a + b)]];
 }
 export function segmentDistance(p, a, b) {
-  const dx = b[0] - a[0], dy = b[1] - a[1];
+  return Math.sqrt(distanceSquared(p[0], p[1], a[0], a[1], b[0], b[1]));
+}
+// World-unit tolerance for floating-point roundoff at physical contact.
+const CONTACT_EPSILON = 1e-12;
+function distanceSquared(x, y, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
   const length2 = dx * dx + dy * dy;
-  const t = length2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / length2)) : 0;
-  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+  const t = length2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / length2)) : 0;
+  const px = x - ax - t * dx, py = y - ay - t * dy;
+  return px * px + py * py;
+}
+// Shared capsule/circle test for both exact poses and sampled poses.
+function collidesAtJoints(ex, ey, tx, ty, obstacles) {
+  for (const obstacle of obstacles) {
+    const clearance = RADIUS * (1 + obstacle.scale) + CONTACT_EPSILON;
+    const limit = clearance * clearance;
+    if (distanceSquared(obstacle.x, obstacle.y, 0, 0, ex, ey) <= limit ||
+        distanceSquared(obstacle.x, obstacle.y, ex, ey, tx, ty) <= limit) return true;
+  }
+  return false;
 }
 export function collides(a, b, obstacles) {
-  const j = joints(a, b);
-  return obstacles.some(obstacle => {
-    const center = [obstacle.x, obstacle.y];
-    const clearance = RADIUS + RADIUS * obstacle.scale;
-    return segmentDistance(center, j[0], j[1]) < clearance || segmentDistance(center, j[1], j[2]) < clearance;
-  });
+  const ex = Math.cos(a), ey = Math.sin(a);
+  return collidesAtJoints(ex, ey, ex + Math.cos(a + b), ey + Math.sin(a + b), obstacles);
 }
 export function collisionGrid(obstacles, n) {
   const data = new Uint8Array(n * n);
+  // Reuse column trigonometry; angle addition avoids per-cell trig and arrays.
+  const cos = new Float64Array(n), sin = new Float64Array(n);
+  for (let col = 0; col < n; col++) {
+    const a = TAU * (col + 0.5) / n;
+    cos[col] = Math.cos(a); sin[col] = Math.sin(a);
+  }
   for (let row = 0; row < n; row++) {
-    const b = TAU * (1 - (row + 0.5) / n);
-    for (let col = 0; col < n; col++) data[row * n + col] = Number(collides(TAU * (col + 0.5) / n, b, obstacles));
+    const b = TAU * (1 - (row + 0.5) / n), cb = Math.cos(b), sb = Math.sin(b);
+    for (let col = 0; col < n; col++) {
+      const ex = cos[col], ey = sin[col];
+      data[row * n + col] = Number(collidesAtJoints(ex, ey, ex + ex * cb - ey * sb, ey + ey * cb + ex * sb, obstacles));
+    }
   }
   return data;
 }

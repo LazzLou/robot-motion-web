@@ -18,7 +18,11 @@
         <svg id="workspace" viewBox="0 0 480 480" aria-label="Robot workspace with movable numbered obstacles">
           <defs><pattern id="grid" width="50" height="50" x="40" y="40" patternUnits="userSpaceOnUse"><path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e9ecef" stroke-width="1"/></pattern></defs>
           <rect x="20" y="20" width="440" height="440" fill="url(#grid)"/>
-          <g class="axes"><path d="M20 240H460M240 20V460"/><text x="451" y="257">x</text><text x="249" y="31">y</text><text x="36" y="256">−2</text><text x="432" y="256">2</text><text x="248" y="443">−2</text><text x="248" y="45">2</text></g>
+          <g class="axes"><path d="M20 240H460M240 20V460"/>
+            <text x="460" y="256" text-anchor="middle" font-weight="700">x</text><text x="249" y="20" dominant-baseline="middle" font-weight="700">y</text>
+            <g class="x-ticks" text-anchor="middle"><text x="40" y="256">−2</text><text x="440" y="256">2</text></g>
+            <g class="y-ticks" text-anchor="start" dominant-baseline="middle"><text x="248" y="440">−2</text><text x="248" y="40">2</text></g>
+          </g>
           <g id="arm"></g><g id="arcs"></g><g id="obstacles"></g>
         </svg>
         <p class="plot-help">Drag a numbered obstacle. Use arrow keys when an obstacle is focused.</p>
@@ -27,7 +31,7 @@
         <div class="map-shell"><div class="map-area"><canvas id="map" aria-hidden="true"></canvas><svg id="map-control" viewBox="0 0 400 400" tabindex="0" role="group" aria-label="Joint-angle map. Click or drag to set the pose. Arrow keys change the angles."><g id="locator"><circle class="locator-ring" r="8"/><path d="M-14 0h8M6 0h8M0-14v8M0 6v8"/><circle class="locator-center" r="1.8"/></g></svg></div>
           <span class="tick y-top">2π</span><span class="tick y-mid">π</span><span class="tick y-bottom">0</span><span class="tick x-left">0</span><span class="tick x-mid">π</span><span class="tick x-right">2π</span><span class="axis-label y-label">θ₂</span><span class="axis-label x-label">θ₁</span>
         </div>
-        <p class="plot-help"><span class="swatch"></span>Shaded regions collide. Click or drag the crosshair to change the pose.</p>
+        <p class="plot-help"><span class="swatch"></span>Shaded cells indicate collisions at sampled poses. The marker and status show collision at the exact current pose. Click or drag the crosshair to change the pose.</p>
       </section>
     </div>
     <div class="controls">
@@ -42,7 +46,7 @@
       <p class="reset-help">Reset restores the arm and the two original obstacles. Map quality stays unchanged.</p>
     </section>
   </section>
-  <section class="notes"><h2>Reading the two views</h2><p>Each point in configuration space represents one arm pose. θ₁ rotates the first link from the horizontal; θ₂ rotates the second link relative to the first. Opposite edges of the map connect, because angles repeat every full turn.</p><p>The map samples possible poses, so its boundary is approximate. The collision indicator always checks the current pose directly. Obstacles can overlap, and colliding poses remain selectable.</p></section>
+  <section class="notes"><h2>Reading the two views</h2><p>Each point in configuration space represents one arm pose. θ₁ rotates the first link from the horizontal; θ₂ rotates the second link relative to the first. Opposite edges of the map connect, because angles repeat every full turn.</p><p>Each cell samples its center pose, so near a boundary a free pose can lie in a shaded cell or a colliding pose in a white cell. The marker and collision status always check the exact current angles. Obstacles can overlap, and colliding poses remain selectable.</p></section>
   <footer>Adapted from <a href="https://demonstrations.wolfram.com/RobotMotionWithObstacles/" target="_blank" rel="noreferrer">Robot Motion with Obstacles</a> by Aaron T. Becker, Wolfram Demonstrations Project.</footer>
 </main>
 </body></html>

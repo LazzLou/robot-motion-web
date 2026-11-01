@@ -13,7 +13,7 @@ Explore how a two-link planar robot arm moves around circular obstacles and how 
 - Draggable, numbered obstacles with individual **1×–3×** size controls
 - Robot/obstacle collision detection with red/green visual feedback
 - Sampled configuration-space (C-space) collision map
-- Adjustable map quality, with a coarse preview during obstacle and quality adjustments
+- Adjustable map quality, maintained during obstacle and quality adjustments
 - Draggable C-space crosshair with a transparent ring and solid center point
 - Joint-angle sliders and numeric inputs in degrees
 - Keyboard controls and a responsive layout
@@ -97,7 +97,7 @@ The numbers in the workspace match the controls below the plots. Size changes up
 
 ### Configuration space
 
-Each point in C-space represents one robot pose. The horizontal axis is θ₁ and the vertical axis is θ₂. Shaded cells indicate collisions; white cells indicate collision-free sampled poses.
+Each point in C-space represents one robot pose. The horizontal axis is θ₁ and the vertical axis is θ₂. Shaded cells indicate collisions at sampled poses; white cells indicate collision-free sampled poses. Each cell samples its center. The marker and status show collision at the exact current pose, so either kind of disagreement can occur near sampled boundaries.
 
 Click or drag the crosshair to change both joint angles. Its ring is transparent so the map remains visible underneath. The crosshair and collision indicator turn red when the current pose collides with an obstacle. Colliding poses remain selectable.
 
@@ -105,7 +105,7 @@ Opposite edges represent equivalent angles: a full revolution returns a joint to
 
 ### Map quality
 
-The **Q** control ranges from 1 to 10 and defaults to 2. At rest, the map samples `32 × Q` angles along each axis:
+The **Q** control ranges from 1 to 10 and defaults to 2. Throughout interaction, the map samples `32 × Q` angles along each axis:
 
 | Q | Grid size |
 |---:|---:|
@@ -114,7 +114,7 @@ The **Q** control ranges from 1 to 10 and defaults to 2. At rest, the map sample
 | 5 | 160 × 160 |
 | 10 | 320 × 320 |
 
-During obstacle dragging, resizing, or quality adjustment, the preview uses `8 × Q` samples per axis. The finer map is restored when the adjustment finishes.
+Obstacle dragging, resizing, and quality adjustment always use `32 × Q` samples per axis. Updates are batched once per animation frame; no release-time refinement is needed.
 
 Higher quality gives finer collision boundaries but requires more computation. Changing only the robot's pose reuses the existing map.
 
@@ -136,13 +136,13 @@ x₂ = x₁ + L cos(θ₁ + θ₂)
 y₂ = y₁ + L sin(θ₁ + θ₂)
 ```
 
-The arm's half-width is `0.125`. Each obstacle has radius `0.125 × size multiplier`. Collision is detected when the distance from an obstacle center to either link segment is strictly less than:
+The arm's half-width is `0.125`. Each obstacle has radius `0.125 × size multiplier`. Collision is detected when the distance from an obstacle center to either link segment is less than or equal to:
 
 ```text
 arm half-width + obstacle radius
 ```
 
-The distance calculation clamps the nearest point to the segment endpoints, accounting for the rounded link ends. Exact tangency is not classified as collision under this strict threshold. Robot self-collision is outside this model.
+The distance calculation clamps the nearest point to the segment endpoints, accounting for the rounded link ends. Boundary contact counts as collision, with a `1e-12` world-unit tolerance for floating-point roundoff. The ordinary arm outline and obstacle outline lie within these physical dimensions; the obstacle focus glow is only a visual affordance. Robot self-collision is outside this model.
 
 The map evaluates this same collision test at each angular grid cell's center. Its boundary is approximate because sampling is finite; the current-pose indicator checks the actual angles directly.
 
@@ -176,6 +176,19 @@ npm test
 ```
 
 The tests cover forward kinematics, segment distances, collision thresholds, angle periodicity, variable obstacle sizes, map sampling, the four-obstacle limit, obstacle removal, Reset preserving quality, and state-input validation.
+
+An optional headless Chrome harness checks real mouse and keyboard interactions, full-resolution maps, frame batching, map reuse, physical silhouette dimensions, and axis-label layout at 1200, 375, and 320 px. It also measures map computation separately from interaction callbacks and input-to-map-write latency.
+
+With the local server running in another terminal:
+
+```bash
+npm install --no-save --package-lock=false playwright
+node tests/browser.mjs
+```
+
+The harness defaults to Chrome at `/usr/bin/google-chrome`; set `CHROME_PATH` for another installation. `PLAYWRIGHT_MODULE` can point to Playwright installed outside the repository. Set `BASELINE_DIR` to a directory containing an earlier copy of the four `dist` files to compare preview behavior with the current app. The harness writes measurements to `/tmp/robot-performance.json` and screenshots to `/tmp/robot-{1200,375,320}.png`. `CHECK_ONLY=1` skips profiling and runs only interaction regressions. These automated measurements do not establish performance on every device.
+
+See [local validation findings](docs/validation.md) for the preview comparison, timing tables, and limitations.
 
 Useful manual checks:
 
@@ -223,7 +236,7 @@ Check the latest GitHub Actions deployment, then refresh with **Ctrl+Shift+R** o
 
 ### Configuration-space updates are slow
 
-Lower Q. The default `Q = 2` produces a 64 × 64 grid at rest and is a useful starting point for interactive exploration.
+Lower Q. The default `Q = 2` produces a 64 × 64 grid and is a useful starting point for interactive exploration.
 
 ## Source Demonstration and Attribution
 
